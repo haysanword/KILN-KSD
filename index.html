@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KSD Monitor</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1D4ED8">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0F172A;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        #offline-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #0F172A;
+            color: white;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            padding: 20px;
+            z-index: 9999;
+        }
+        .btn-retry {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #1D4ED8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="offline-overlay">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+        <h2 style="margin-top: 16px;">Anda Sedang Offline</h2>
+        <p>KSD Monitor memerlukan koneksi internet untuk sinkronisasi data.</p>
+        <button class="btn-retry" onclick="window.location.reload()">Coba Lagi</button>
+    </div>
+
+    <!-- GANTI URL DI BAWAH INI DENGAN URL DEPLOYMENT APPS SCRIPT ANDA -->
+    <iframe id="app-frame" src="https://script.google.com/macros/s/AKfycbyUj1LxqaWf1J1J9IJJb6VvCQMiM8KOhfct6wKL4dh3IJBkEeBRFNYG4MhZHC93rlfF/exec" allow="geolocation; microphone; camera"></iframe>
+
+    <script>
+        // 1. Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js')
+                    .then(reg => console.log('SW terdaftar:', reg.scope))
+                    .catch(err => console.log('Pendaftaran SW gagal:', err));
+            });
+        }
+
+        // 2. Offline Detection
+        window.addEventListener('online', () => {
+            document.getElementById('offline-overlay').style.display = 'none';
+        });
+        window.addEventListener('offline', () => {
+            document.getElementById('offline-overlay').style.display = 'flex';
+        });
+        if (!navigator.onLine) {
+            document.getElementById('offline-overlay').style.display = 'flex';
+        }
+
+        // 3. PWA Install Prompt Logic
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Kirim pesan ke iframe Apps Script bahwa PWA bisa di-install
+            const iframe = document.getElementById('app-frame');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({ type: 'PWA_INSTALL_AVAILABLE' }, '*');
+            }
+        });
+
+        // Dengarkan pesan dari iframe Apps Script saat tombol Install diklik
+        window.addEventListener('message', async (e) => {
+            if (e.data && e.data.type === 'PWA_INSTALL_CLICKED') {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
